@@ -1,7 +1,7 @@
 // Module for polynomial extension fields
 use crate::field::{FieldElement, Field};
-use std::str::FromStr;
-use ethereum_types::U256;
+// use std::str::FromStr;
+// use ethereum_types::U256;
 use lazy_static::lazy_static;
 use num_bigint::BigUint;
 use num_traits::Num;
@@ -97,11 +97,12 @@ impl Polynomial {
 //A struct for elemensts in polynomial extension fields
 #[derive(Debug, Clone)]
 pub struct FQP {
-    pub coefficients: Vec<u64>,
-    pub modulus_coeff: Vec<u64>,
+    pub coefficients: Vec<FieldElement>,
+   
+    pub modulus_coeff: Vec<i64>,
 }
 impl FQP{
-    pub fn new(coefficients:Vec<u64>,modulus_coeff:Vec<u64>)->FQP{
+    pub fn new(coefficients:Vec<FieldElement>,modulus_coeff:Vec<i64>)->FQP{
         
         if (coefficients.len()!=modulus_coeff.len()){
             panic!("The coefficients and modulus coefficients must have the same length");
@@ -116,100 +117,119 @@ impl FQP{
         assert_eq!(self.degree(), other.degree(), "Degrees must match for addition");
         
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-         let modded = BigUint::from(self.coefficients[i]+self.coefficients[i]) % &*FIELD_MODULUS;
+         let modded = BigUint::from(self.coefficients[i].0+other.coefficients[i].0) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn sub(&self, other: &FQP) -> FQP {
         assert_eq!(self.degree(), other.degree(), "Degrees must match for subtraction");
         
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i] - other.coefficients[i]) % &*FIELD_MODULUS;
+            let modded = BigUint::from(self.coefficients[i].0 - other.coefficients[i].0) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
+
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn mul(&self, other: &FQP) -> FQP {
         assert_eq!(self.degree(), other.degree(), "Degrees must match for multiplication");
         
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i] * other.coefficients[i]) % &*FIELD_MODULUS;
+            let modded = BigUint::from(self.coefficients[i].0 * other.coefficients[i].0) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn div(&self, other: &FQP) -> FQP {
         assert_eq!(self.degree(), other.degree(), "Degrees must match for division");
         
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i] * prime_field_inv(other.coefficients[i])) % &*FIELD_MODULUS;
+            let modded = BigUint::from(self.coefficients[i].0 * prime_field_inv(other.coefficients[i].0)) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn inverse(&self) -> FQP {
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(prime_field_inv(self.coefficients[i])) % &*FIELD_MODULUS;
+            let modded = BigUint::from(prime_field_inv(self.coefficients[i].0)) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn pow(&self, exp: u64) -> FQP {
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i].pow(exp as u32)) % &*FIELD_MODULUS;
+            let modded = BigUint::from(self.coefficients[i].0.pow(exp as u32)) % &*FIELD_MODULUS;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        for coeff in &self.coefficients {
-            bytes.extend_from_slice(&coeff.to_be_bytes());
-        }
-        bytes
-    }
+    // pub fn to_bytes(&self) -> Vec<u8> {
+    //     let mut bytes = vec![];
+    //     for coeff in &self.coefficients {
+    //         bytes.extend_from_slice(&coeff.to_be_bytes());
+    //     }
+    //     bytes
+    // }
     pub fn neg(&self) -> FQP {
         let mut result = vec![0u64; self.degree()];
+        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = &*FIELD_MODULUS-BigUint::from(self.coefficients[i]) ;
+            let modded = &*FIELD_MODULUS-BigUint::from(self.coefficients[i].0) ;
             result[i] = modded.to_u64().unwrap();
+            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
      
 
-        FQP::new(result, self.modulus_coeff.clone())
+        FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn equal(&self, other: &FQP)  {
-        if
-        self.coefficients == other.coefficients
-        {
-            println!("The two polynomials are equal");
-        }
-        else{
+        
+        for i in 0..self.degree() {
+            if self.coefficients[i].0 != other.coefficients[i].0 {
+                println!("The two polynomials are not equal");
+                return;
+            }}
+       
+        
             println!("The two polynomials are not equal");
         }
-    }
+    
 pub fn one(&self)->FQP{
-    let mut result = vec![1u64; self.degree()];
+    
+    let mut r = vec![FieldElement::new(1,Field::new(self.coefficients[0].1.0))];
    
-    FQP::new(result, self.modulus_coeff.clone())
+    FQP::new(r, self.modulus_coeff.clone())
 
 }
 pub fn zero(&self)->FQP{
-    let mut result = vec![0u64; self.degree()];
-    FQP::new(result, self.modulus_coeff.clone())
+    let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
+   
+    FQP::new(r, self.modulus_coeff.clone())
 
 }
 pub fn mul_assign(&mut self, other: &FQP) {
@@ -235,5 +255,53 @@ pub fn pow_assign(&mut self, exp: u64) {
     }
     pub fn inverse_assign(&mut self) {
         *self = self.inverse();
+    }
+}
+struct FQ2 {
+    inner: FQP,
+    mc_tuples: Vec<(u64,u64)>,
+    degree: usize,
+}
+
+impl FQ2 {
+    fn new(c0:FieldElement, c1: FieldElement) -> Self {
+        FQ2 {
+            inner: FQP::new(vec![c0, c1], vec![1, 0]), // x^2 - 1 = 0
+            mc_tuples: vec![(1,0)],
+            degree: 2,
+        }
+    }
+}
+const FQ12_MODULUS_COEFFS: [i64; 12] = [82, 0, 0, 0, 0, 0, -18, 0, 0, 0, 0, 0];
+// let mut FQ12_MC_TUPLES: Vec<(u64, u64)> = FQ12_MODULUS_COEFFS.iter().enumerate()
+//     .filter(|(_, c)| **c != 0)
+//     .map(|(i, c)| (i as u64, *c as u64))
+//     .collect();
+// const fq12_mc_tuples: Vec<(usize, i32)> = FQ12_MODULUS_COEFFS
+//     .iter()
+//     .enumerate()
+//     .filter_map(|(i, &c)| if c != 0 { Some((i, c as i32)) } else { None })
+//     .collect();
+fn get_fq12_mc_tuples() -> Vec<(usize,i64)> {
+    FQ12_MODULUS_COEFFS
+        .iter()
+        .enumerate()
+        .filter(|&(_, &c)| c != 0)
+        .map(|(i, &c)| (i, c))
+        .collect()
+}
+struct FQ12{
+    inner: FQP,
+    mc_tuples: Vec<(usize,i64)>,
+    degree: usize,
+}
+
+impl FQ12 {
+    fn new(c0:FieldElement, c1: FieldElement, c2: FieldElement, c3: FieldElement, c4: FieldElement, c5: FieldElement,c6:FieldElement,c7:FieldElement, c8: FieldElement, c9: FieldElement, c10: FieldElement, c11: FieldElement) -> Self {
+        FQ12 {
+            inner: FQP::new(vec![c0, c1, c2, c3, c4, c5,c6,c7,c8,c9,c10,c11],FQ12_MODULUS_COEFFS.to_vec()), // x^6 - 1 = 0
+            mc_tuples: get_fq12_mc_tuples(),
+            degree: 12,
+        }
     }
 }
