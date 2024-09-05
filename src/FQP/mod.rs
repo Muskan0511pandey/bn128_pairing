@@ -17,28 +17,29 @@ use num_traits::Num;
 //         base = (base*base)%n;
 //     }
 //     inv
+// // }
+// lazy_static! {
+//     static ref FIELD_MODULUS: BigUint = BigUint::from_str_radix("21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
 // }
-lazy_static! {
-    static ref FIELD_MODULUS: BigUint = BigUint::from_str_radix("21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
-}
+const FIELD_MODULUS:u64=3221225473;
 
 use num_traits::ToPrimitive;
 
 pub fn prime_field_inv(a: u64) -> u64 {
-    let a_biguint = BigUint::from(a);
-    let mut inv = BigUint::from(1u32);
-    let mut base = a_biguint;
-    let mut exp = &*FIELD_MODULUS - BigUint::from(2u32);
+    
+    let mut inv = 1;
+    let mut base = a;
+    let mut exp = &FIELD_MODULUS -2;
 
-    while exp > BigUint::from(0u32) {
-        if &exp % 2u32 == BigUint::from(1u32) {
-            inv = (&inv * &base) % &*FIELD_MODULUS;
+    while exp > 0 {
+        if &exp % 2 == 1 {
+            inv = (&inv * &base) % &FIELD_MODULUS;
         }
-        base = (&base * &base) % &*FIELD_MODULUS;
+        base = (&base * &base) % &FIELD_MODULUS;
         exp >>= 1;
     }
 
-    inv.to_u64().unwrap()
+    inv
 }
 
 // utility methods for polynomial math
@@ -94,6 +95,9 @@ impl Polynomial {
 
 }
 
+
+
+
 //A struct for elemensts in polynomial extension fields
 #[derive(Debug, Clone)]
 pub struct FQP {
@@ -103,9 +107,12 @@ pub struct FQP {
 }
 impl FQP{
     pub fn new(coefficients:Vec<FieldElement>,modulus_coeff:Vec<i64>)->FQP{
+        println!("Creating new FQP:");
+    println!("  coefficients: {:?}", coefficients);
+    println!("  modulus_coeff: {:?}", modulus_coeff);
         
         if (coefficients.len()!=modulus_coeff.len()){
-            panic!("The coefficients and modulus coefficients must have the same length");
+            panic!("The coefficients and modulus coefficients must have the same length"); 
         }
         else {FQP{coefficients,modulus_coeff}}
     }
@@ -114,14 +121,20 @@ impl FQP{
     }
    
     pub fn add(&self, other: &FQP) -> FQP {
+    //     println!("Performing addition:");
+    // println!("  self: {:?}", self);
+    // println!("  other: {:?}", other);
         assert_eq!(self.degree(), other.degree(), "Degrees must match for addition");
+
         
         let mut result = vec![0u64; self.degree()];
-        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
+        // let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
+        let mut r = vec![];
         for i in 0..self.degree() {
-         let modded = BigUint::from(self.coefficients[i].0+other.coefficients[i].0) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
-            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
+        //  let modded = BigUint::from(self.coefficients[i].0+other.coefficients[i].0) % &*FIELD_MODULUS;
+        //     result[i] = modded.to_u64().unwrap();
+        result[i]=self.coefficients[i].0+other.coefficients[i].0;
+             r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
         FQP::new(r, self.modulus_coeff.clone())
@@ -130,15 +143,76 @@ impl FQP{
         assert_eq!(self.degree(), other.degree(), "Degrees must match for subtraction");
         
         let mut result = vec![0u64; self.degree()];
-        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
+        let mut r = vec![];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i].0 - other.coefficients[i].0) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
+            let modded = self.coefficients[i].0 - other.coefficients[i].0 ;
+            result[i] = modded;
             r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
 
         }
         
         FQP::new(r, self.modulus_coeff.clone())
+    }
+    
+    pub fn scalar_mul(&self, scalar: FieldElement) -> Self {
+        let mut result = Vec::new();
+
+        for i in 0..self.coefficients.len() {
+            result.push(self.coefficients[i] * scalar);
+        }
+        // self.coefficients = result.clone();
+        FQP::new(result, self.modulus_coeff.clone())
+    }
+    pub fn is_all_zeros(a:Vec<u64>) -> bool {
+        for i in 0..a.len() {
+            if a[i] != 0 {
+                return false;
+            }
+        }
+        true
+    }
+    
+    pub fn q_div(self, other:&FQP) -> (Self, Self) {
+        let mut q = Vec::new();
+        let field = Field::new(self.coefficients[0].modulus());
+        let n = self.coefficients.len();
+        let m = other.coefficients.len();
+        if n < m {
+            return (
+                FQP::new(vec![FieldElement::new(0, field); 0], self.modulus_coeff.clone()),
+                self,
+            );
+        }
+        let mut poly1_coeff = self.clone().coefficients;
+        let mut poly2_coeff = other.clone().coefficients;
+        poly1_coeff.reverse();
+        poly2_coeff.reverse();
+        for i in 0..n - m + 1 {
+            let mut other_coeff = poly2_coeff.clone();
+            let mut other_FQP = FQP::new(other_coeff.clone(), self.modulus_coeff.clone());
+            other_coeff.append(&mut vec![FieldElement::new(0, field); n - m - i]);
+            let q_temp = poly1_coeff[0] / other_coeff[0];
+
+            let other_poly=other_FQP.scalar_mul(q_temp.clone());
+            poly1_coeff = (FQP::new(poly1_coeff,self.modulus_coeff.clone())  .sub( &other_poly.clone()))
+                .coefficients[1..]
+                .to_vec();
+            q.push(q_temp);
+        }
+        q.reverse();
+        poly1_coeff.reverse();
+        let poly1 = FQP::new(poly1_coeff, self.modulus_coeff.clone());
+        let mut x:Vec<u64>=vec![];
+        for i in 0..poly1.coefficients.len(){
+            x.push(poly1.coefficients[i].0);
+        }
+        if FQP::is_all_zeros(x) {
+            return (FQP::new(q, self.modulus_coeff.clone()), FQP::new(vec![FieldElement::new(0, field); 0], self.modulus_coeff.clone())
+                
+            );
+        } else {
+            return (FQP::new(q,self.modulus_coeff.clone()), poly1);
+        }
     }
     pub fn mul(&self, other: &FQP) -> FQP {
         assert_eq!(self.degree(), other.degree(), "Degrees must match for multiplication");
@@ -146,32 +220,42 @@ impl FQP{
         let mut result = vec![0u64; self.degree()];
         let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i].0 * other.coefficients[i].0) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
+            let modded = self.coefficients[i].0 * other.coefficients[i].0;
+            result[i] = modded;
             r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
         FQP::new(r, self.modulus_coeff.clone())
     }
     pub fn div(&self, other: &FQP) -> FQP {
-        assert_eq!(self.degree(), other.degree(), "Degrees must match for division");
+    //     assert_eq!(self.degree(), other.degree(), "Degrees must match for division");
+    //     println!("Performing division:");
+    // println!("  self: {:?}", self);
+    // println!("  other: {:?}", other);
         
-        let mut result = vec![0u64; self.degree()];
-        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
-        for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i].0 * prime_field_inv(other.coefficients[i].0)) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
-            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
-        }
+    //     let mut result = vec![0u64; self.degree()];
+    //     let mut r = vec![];
+    //     for i in 0..self.degree() {
+    //         let modded = self.coefficients[i].0 * prime_field_inv(other.coefficients[i].0);
+    //         print!("modded: {:?}", modded);
+    //         result[i] = modded;
+    //         r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
+    //     }
         
-        FQP::new(r, self.modulus_coeff.clone())
-    }
+    //     FQP::new(r, self.modulus_coeff.clone())
+    let (q, r) = self.clone().q_div(other);
+    if FQP::is_all_zeros(r.coefficients.iter().map(|x| x.0).collect()) {
+        return q;
+    } else {
+        panic!("Division error");
+    }}
+
     pub fn inverse(&self) -> FQP {
         let mut result = vec![0u64; self.degree()];
         let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(prime_field_inv(self.coefficients[i].0)) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
+            let modded = self.coefficients[i].0;
+            result[i] = modded;
             r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
@@ -181,8 +265,8 @@ impl FQP{
         let mut result = vec![0u64; self.degree()];
         let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
         for i in 0..self.degree() {
-            let modded = BigUint::from(self.coefficients[i].0.pow(exp as u32)) % &*FIELD_MODULUS;
-            result[i] = modded.to_u64().unwrap();
+            let modded = self.coefficients[i].0.pow(exp as u32);
+            result[i] = modded;
             r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
         }
         
@@ -194,19 +278,19 @@ impl FQP{
     //         bytes.extend_from_slice(&coeff.to_be_bytes());
     //     }
     //     bytes
-    // }
-    pub fn neg(&self) -> FQP {
-        let mut result = vec![0u64; self.degree()];
-        let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
-        for i in 0..self.degree() {
-            let modded = &*FIELD_MODULUS-BigUint::from(self.coefficients[i].0) ;
-            result[i] = modded.to_u64().unwrap();
-            r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
-        }
+    // // }
+    // pub fn neg(&self) -> FQP {
+    //     let mut result = vec![0u64; self.degree()];
+    //     let mut r = vec![FieldElement::new(0,Field::new(self.coefficients[0].1.0))];
+    //     for i in 0..self.degree() {
+    //         let modded:i64 = self.coefficients[0].1-self.coefficients[i].0 ;
+    //         result[i] = modded;
+    //         r.push(FieldElement::new(result[i],Field::new(self.coefficients[0].1.0)));
+    //     }
      
 
-        FQP::new(r, self.modulus_coeff.clone())
-    }
+    //     FQP::new(r, self.modulus_coeff.clone())
+    // }
     pub fn equal(&self, other: &FQP)  {
         
         for i in 0..self.degree() {
@@ -247,9 +331,9 @@ pub fn div_assign(&mut self, other: &FQP) {
 pub fn pow_assign(&mut self, exp: u64) {
     *self = self.pow(exp);
 }
-    pub fn neg_assign(&mut self) {
-    *self = self.neg();
-}
+//     pub fn neg_assign(&mut self) {
+//     *self = self.neg();
+// }
     pub fn equal_assign(&mut self, other: &FQP) {
         self.equal(other);
     }
@@ -303,5 +387,63 @@ impl FQ12 {
             mc_tuples: get_fq12_mc_tuples(),
             degree: 12,
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fq2_operations() {
+        let field = Field::new(FIELD_MODULUS);
+        
+        let x = FQ2::new(
+            FieldElement::new(1, field.clone()),
+            FieldElement::new(1, field.clone())
+        );
+        let f = FQ2::new(
+            FieldElement::new(1, field.clone()),
+            FieldElement::new(2, field.clone())
+        ); 
+        let fpx = FQ2::new(
+            FieldElement::new(2, field.clone()),
+            FieldElement::new(3, field.clone())
+        );
+        let one = FQ2::new(
+            FieldElement::new(1, field.clone()),
+            FieldElement::new(0, field.clone())
+        );
+
+      //  Addition
+    //     let add_result = x.inner.add(&f.inner);
+    //     assert_eq!(add_result.coefficients[0].0, fpx.inner.coefficients[0].0);
+    //     assert_eq!(add_result.coefficients[1].0, fpx.inner.coefficients[1].0);
+    //    // Subtraction
+    //     let sub_result = f.inner.sub(&x.inner);
+
+    //     assert_eq!(sub_result.coefficients[0].0, 0);   
+    //     assert_eq!(sub_result.coefficients[1].0, 1);
+
+        // Division
+        let div_result = f.inner.div(&f.inner);
+        assert_eq!(div_result.coefficients[0].0, one.inner.coefficients[0].0);
+        assert_eq!(div_result.coefficients[1].0, one.inner.coefficients[1].0);
+
+        // // Complex operation: (1/f + x/f) == (1+x)/f
+        // let left_side = one.inner.div(&f.inner).add(&x.inner.div(&f.inner));
+        // let right_side = one.inner.add(&x.inner).div(&f.inner);
+        // assert_eq!(left_side.coefficients[0].0, right_side.coefficients[0].0);
+        // assert_eq!(left_side.coefficients[1].0, right_side.coefficients[1].0);
+
+        // // Multiplication distributive property: f*(1+x) == f*1 + f*x
+        // let left_side = f.inner.mul(&one.inner.add(&x.inner));
+        // let right_side = f.inner.mul(&one.inner).add(&f.inner.mul(&x.inner));
+        // assert_eq!(left_side.coefficients[0].0, right_side.coefficients[0].0);
+        // assert_eq!(left_side.coefficients[1].0, right_side.coefficients[1].0);
+
+        // // Power operation
+        // let pow_result = x.inner.pow((FIELD_MODULUS.to_u64().unwrap().pow(2) - 1) as u64);
+        // assert_eq!(pow_result.coefficients[0].0, one.inner.coefficients[0].0);
+        // assert_eq!(pow_result.coefficients[1].0, one.inner.coefficients[1].0);
     }
 }
