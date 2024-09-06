@@ -41,6 +41,7 @@ impl FieldElement{
 
             }
             base = (base*base)%self.1.0;
+            exp/=2;
         }
         FieldElement(inv,self.1)
     }
@@ -154,3 +155,16 @@ impl Neg for FieldElement{
         FieldElement((self.1.0-self.0)%self.1.0,self.1)
     }
 }
+#[cfg(test)]
+mod test_field_operations {
+    use super::*;
+
+    #[test]
+    fn test_field_add() {
+        let field = Field::new(7);
+        let a = FieldElement::new(1, field);
+        let b = FieldElement::new(2, field);
+        let c = a + b;
+        assert_eq!(c.0, 3);
+    }}
+    

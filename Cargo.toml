@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ethereum-types = "0.11"
+once_cell = "1.8"
+lazy_static = "1.4.0"
+num-bigint = "0.4"
+num-traits = "0.2"
