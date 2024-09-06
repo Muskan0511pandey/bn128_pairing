@@ -194,7 +194,7 @@ impl FQP{
             }
          
         }
-        println!("result={:?}",result);
+        // println!("result={:?}",result);
         while result.len()>self.degree(){
            let exp=result.len()-self.degree()-1;
            let top = match result.pop() {
@@ -202,8 +202,21 @@ impl FQP{
                None => panic!("Cannot pop from an empty vector"),
            };
            for i in 0.. self.degree(){
-            let x= FieldElement::new(U256::from(self.modulus_coeff[i] ),Field::new(self.coefficients[0].1.0));
-               result[exp+i]=result[exp+i]-top*x;
+            if (self.modulus_coeff[i]<0){
+                let y =U256::from(-self.modulus_coeff[i]);
+                let z=self.coefficients[0].1.0-y;
+                let x= FieldElement::new(z,Field::new(self.coefficients[0].1.0));
+                println!("x={:?}",x);
+                result[exp+i]=result[exp+i]-top*x;
+              
+
+            }
+            else{let x= FieldElement::new(U256::from(self.modulus_coeff[i] ),Field::new(self.coefficients[0].1.0));
+                println!("x={:?}",x);
+                result[exp+i]=result[exp+i]-top*x;}
+           
+
+              
                if (result[exp+i].0<U256::from(0)){
                 result[exp+i].0=self.coefficients[0].1.0+result[exp+i].0;
 
@@ -211,7 +224,7 @@ impl FQP{
                else{
                      result[exp+i].0=result[exp+i].0;
                }
-               println!("result={:?}",result); 
+            //    println!("result={:?}",result); 
            }
         }
         
@@ -463,16 +476,18 @@ mod test {
             FieldElement::new(U256::from(11), FIELD_MODULUS),
             FieldElement::new(U256::from(12), FIELD_MODULUS),
         ]);
-       
-
-        // assert_eq!(x.inner.add(& f.inner),fpx.inner);
-        // assert_eq!(f.inner .div(&f.inner), x.inner);
-        println!("{:?}", x.inner.mul(&f.inner));
+    
+         //addition
+        assert_eq!(x.inner.add(& f.inner),fpx.inner);
+        //division
+        assert_eq!(f.inner .div(&f.inner), x.inner);
+        //Multiplication
+        println!("{:?}", x.inner.mul(&x.inner));
+        //complex operation
       
-        // assert_eq!((x.inner.mul( &f.inner)) .add( &x.inner .mul( &f.inner)), (x.inner .add( &x.inner)) .mul(&f.inner));
+        assert_eq!((x.inner.mul( &f.inner)) .add( &x.inner .mul( &f.inner)), (x.inner .add( &x.inner)) .mul(&f.inner));
 
-        // This check takes too long
-        // assert_eq!(x.clone().pow(FIELD_MODULUS.pow(12) - 1), one.clone());
+       
 
         println!("FQ12 works fine");
     }
