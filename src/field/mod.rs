@@ -5,7 +5,8 @@ use bigint::{U256,U512};
 // Define a field element
 // Define arithmetic operations on field elements
 //field_modulus is the prime number that defines the field
-const  field_modulus :&str= ("21888242871839275222246405745257275088696311157297823662689037894645226208583");
+
+const FIELD_MODULUS :&str= "21888242871839275222246405745257275088696311157297823662689037894645226208583";
 
 #[derive(Debug, Clone, Copy)]  
 pub struct Field(pub U256);
@@ -53,40 +54,7 @@ impl FieldElement{
         }
         FieldElement(U256::from(inv),self.1)
     }
-    // Extended Euclidean Algorithm to compute modular inverse
-//     pub fn inverse(&self) -> FieldElement {
-//         let mut lm = U256::from(1);  // Coefficient for low
-//         let mut hm = U256::from(0);  // Coefficient for high
-//         let mut low = self.0 % self.1.0;  // The element itself (mod field
-//         println!("low ={:?}",low);
-//         let mut high = self.1.0;  // The modulus (field size)
-//         println!("high ={:?}",high);
-
-//         while low > U256::from(1) {
-//             let r = high / low;
-//             println!("r={:?}",r);  // Quotient (integer division)
-            
-//             let mul = r * low;  // Multiplication
-
-//             // Handle negative results by adding the modulus
-//             let nm = if hm < mul {
-//                 hm + self.1.0 - mul  // If negative, add modulus
-//             } else {
-//                 hm - mul  // Otherwise, subtract normally
-//             };
-//  // Update high and low for the next iteration
-//  let new = high - (low * r);  // Subtraction, always valid within U256 bounds
-
-//             hm = lm;  // Update high multiplier
-//             lm = nm;  // Update low multiplier
-//             high = low;  // Update high remainder
-//             low = new;  // Update low remainder
-//         }
-
-//         // Return the modular inverse (lm) modulo the field
-//         FieldElement(lm , self.1)
-//     }
-
+   
     pub fn pow(&self, exp:u64)->FieldElement{
         let mut result =U256::from(1);
         let mut base=self.0;
@@ -101,21 +69,7 @@ impl FieldElement{
         }
         FieldElement(result,self.1)
     }
-    // pub fn to_bytes(&self)->Vec<u8>{
-    //     let mut e =self.0.to_be_bytes().to_vec();
-    //     let mut f = self.1.0.to_be_bytes().to_vec();
-    //     e.append(& mut f);
-    //     e
-
-    // // }
-    // pub fn from_bytes(bytes:&[u8])->FieldElement{
-    //     let mut x =[0u8;8];
-    //     let mut y =[0u8;8];
-    //     x.copy_from_slice(&bytes[..8]);
-    //     y.copy_from_slice(&bytes[8..]);
-    //     FieldElement(
-    //         u64::from_be_bytes(x)%u64::from_be_bytes(y),
-    //         Field(u64::from_be_bytes(y)),)
+    
     
 pub fn eq(&self, other:&FieldElement)->bool{
     self.0==other.0 && self.1==other.1
@@ -168,7 +122,9 @@ pub fn eq(&self, other:&FieldElement)->bool{
                           if self.1!=other.1{
                               panic!("Fields must be same");
                           }
-                          FieldElement((self.0*other.0)%self.1.0,self.1)
+                          let x=U512::from(self.0*other.0);
+                          let y=x%U512::from(self.1.0);
+                          FieldElement(U256::from(y),self.1)
                       }
                   }
                   impl MulAssign for FieldElement{
@@ -209,7 +165,7 @@ mod test_field_operations {
     #[test]
     fn test_field_add() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let a = FieldElement::new(U256::from(1), field);
         let b = FieldElement::new(U256::from(2), field);
         let c = a + b;
@@ -218,7 +174,7 @@ mod test_field_operations {
     #[test]
     fn test_field_sub() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Inval id number"));
         let a = FieldElement::new(U256::from(1), field);
         let b = FieldElement::new(U256::from(2), field);
         let c = a - b;
@@ -230,7 +186,7 @@ mod test_field_operations {
     #[test]
      fn test_field_mul() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let a = FieldElement::new(U256::from(1), field);
         let b = FieldElement::new(U256::from(2), field);
         let c = a * b;
@@ -240,7 +196,7 @@ mod test_field_operations {
     #[test]
     fn test_field_div() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
 
         let a = FieldElement::new(U256::from(1), field);
         let b = FieldElement::new(U256::from(2), field);
@@ -252,7 +208,7 @@ mod test_field_operations {
     #[test]
     fn test_field_inverse() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let a = FieldElement::new(U256::from(7 ), field);
         let b = a.inverse();
         // assert_eq!(b.0, U256::from(4));
@@ -262,7 +218,7 @@ mod test_field_operations {
     #[test]
     fn test_field_pow() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let a = FieldElement::new(U256::from(2), field);
         let b = a.pow(3);
         assert_eq!(b.0, U256::from(8));
@@ -273,7 +229,7 @@ mod test_field_operations {
     #[should_panic]
     fn test_diff_field() {
         // let field1 = Field::new(U256::from(7));
-        let field1=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field1=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
 
         let field2 = Field::new(U256::from(8));
         let a = FieldElement::new(U256::from(1), field1);
@@ -284,7 +240,7 @@ mod test_field_operations {
     #[test]
     fn test_negative_number() {
         // let field = Field::new(U256::from(7));
-        let field=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let a = FieldElement::new(U256::from(2), field);
         // assert_eq!((-a).0, U256::from(5));
         println!("-a ={:?}", (-a).0)

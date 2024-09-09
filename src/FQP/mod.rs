@@ -1,68 +1,12 @@
 
 use crate::field::{FieldElement, Field};
 use bigint::U256;
+use std::{ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}, vec};
 
 
-const  field_modulus :&str= ("21888242871839275222246405745257275088696311157297823662689037894645226208583");
+pub const  FIELD_MODULUS :&str= "21888242871839275222246405745257275088696311157297823662689037894645226208583";
 
 
-
-// pub fn prime_field_inv(a: u64) -> u64 {
-    
-//     let mut inv = 1;
-//     let mut base = a;
-//     let mut exp = &FIELD_MODULUS -2;
-
-//     while exp > 0 {
-//         if &exp % 2 == 1 {
-//             inv = (&inv * &base) % &FIELD_MODULUS;
-//         }
-//         base = (&base * &base) % &FIELD_MODULUS;
-//         exp =exp/2;
-//     }
-
-//     inv
-// }
-
-// // utility methods for polynomial math
-// //polynomial is in the form a)+a1*x+a2*x^2+...+an*x^n
-// //and vector of coefficients [a0,a1,a2,...,an]
-// #[derive(Debug, Clone)]
-// pub struct Polynomial {
-//   pub coefficients: Vec<u64>,
-// }
-
-// impl Polynomial {
-//   pub fn new(coefficients: Vec<u64>) -> Polynomial {
-//     Polynomial { coefficients }
-//   }
-
-//   pub fn degree(&self) -> usize {
-//     self.coefficients.len() - 1
-//   }
-//   pub fn poly_rounded_div(a:Polynomial,b:Polynomial)->Polynomial{
-
-//         let dega=a.degree();
-//         let degb=b.degree();
-//         let mut temp = a.clone();
-//         let mut q = Polynomial::new(vec![0]);
-//         for i in dega-degb..0{
-//             q.coefficients[i]=q.coefficients[i]+temp.coefficients[dega]*(prime_field_inv(b.coefficients[degb]));
-//             for j in 0..degb+1{
-//                 temp.coefficients[i+j]=temp.coefficients[i+j]-q.coefficients[i]*b.coefficients[j];
-
-
-//             }
-        
-//         }
-//         q
-  
-  
-
-//   }
-   
-
-// }
 
 
 
@@ -80,7 +24,7 @@ impl FQP{
     println!("  coefficients: {:?}", coefficients);
     println!("  modulus_coeff: {:?}", modulus_coeff);
         
-        if (coefficients.len()!=modulus_coeff.len()){
+        if coefficients.len()!=modulus_coeff.len(){
             panic!("The coefficients and modulus coefficients must have the same length"); 
         }
         else {FQP{coefficients,modulus_coeff}}
@@ -190,7 +134,8 @@ impl FQP{
         for i in 0..self.degree() {
             for j in 
             0..other.degree() {
-                result[i+j] += self.coefficients[i] * other.coefficients[j];
+                result[i+j] += (self.coefficients[i].mul((other.coefficients[j])));
+                println!("result={:?}",result);
             }
          
         }
@@ -231,7 +176,7 @@ impl FQP{
         FQP::new(result, self.modulus_coeff.clone())}
     }
     pub fn div(&self, other: &FQP) -> FQP {
-    
+      
     let (q, r) = self.clone().q_div(other);
    
     return q;}
@@ -275,13 +220,13 @@ impl FQP{
     
 pub fn one(&self)->FQP{
     
-    let mut r = vec![FieldElement::new(U256::from(1),Field::new(self.coefficients[0].1.0))];
+    let  r = vec![FieldElement::new(U256::from(1),Field::new(self.coefficients[0].1.0))];
    
     FQP::new(r, self.modulus_coeff.clone())
 
 }
 pub fn zero(&self)->FQP{
-    let mut r = vec![FieldElement::new(U256::from(0),Field::new(self.coefficients[0].1.0))];
+    let r = vec![FieldElement::new(U256::from(0),Field::new(self.coefficients[0].1.0))];
    
     FQP::new(r, self.modulus_coeff.clone())
 
@@ -309,14 +254,15 @@ pub fn div_assign(&mut self, other: &FQP) {
         *self = self.inverse();
     }
 }
-struct FQ2 {
-    inner: FQP,
-    mc_tuples: Vec<(u64,u64)>,
-    degree: usize,
+#[derive(Debug,PartialEq,Clone,)]
+pub struct FQ2 {
+   pub inner: FQP,
+   pub mc_tuples: Vec<(u64,u64)>,
+    pub degree: usize,
 }
 
 impl FQ2 {
-    fn new(c0:FieldElement, c1: FieldElement) -> Self {
+    pub fn new(c0:FieldElement, c1: FieldElement) -> Self {
         FQ2 {
             inner: FQP::new(vec![c0, c1], vec![1, 0]), // x^2 - 1 = 0
             mc_tuples: vec![(1,0)],
@@ -335,14 +281,14 @@ fn get_fq12_mc_tuples() -> Vec<(usize,i64)> {
         .collect()
 }
 #[derive(Debug,PartialEq,Clone)]
-struct FQ12{
-    inner: FQP,
-    mc_tuples: Vec<(usize,i64)>,
-    degree: usize,
+pub struct FQ12{
+   pub inner: FQP,
+   pub mc_tuples: Vec<(usize,i64)>,
+    pub degree: usize,
 }
 
 impl FQ12 {
-    fn new(coeff: Vec<FieldElement>) -> Self {
+   pub  fn new(coeff: Vec<FieldElement>) -> Self {
         FQ12 {
             inner: FQP::new(coeff, FQ12_MODULUS_COEFFS.to_vec()), // x^6 - 1 = 0
             mc_tuples: get_fq12_mc_tuples(),
@@ -350,13 +296,13 @@ impl FQ12 {
         }
         
     }
-    fn one(&self)->FQ12{
+   pub  fn one(degree:usize)->FQ12{
         let mut coefficients=vec![];
-        let FIELD_MODULUS=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
-        for i in 0..12{
-            coefficients.push(FieldElement::new(U256::from(0),FIELD_MODULUS));
+        let field_modulus =Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
+        for i in 0..degree{
+            coefficients.push(FieldElement::new(U256::from(0),field_modulus));
         }
-        coefficients[0]=FieldElement::new(U256::from(1),FIELD_MODULUS);
+        coefficients[0]=FieldElement::new(U256::from(1),field_modulus);
         return FQ12::new(coefficients);
 
     }
@@ -368,23 +314,23 @@ mod tests {
     #[test]
     fn test_fq2_operations() {
         // let field = Field::new(FIELD_MODULUS);
-        let FIELD_MODULUS=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field_modulus=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         
         let x = FQ2::new(
-            FieldElement::new(U256::from(1), FIELD_MODULUS),
-            FieldElement::new(U256::from(1), FIELD_MODULUS)
+            FieldElement::new(U256::from(1), field_modulus),
+            FieldElement::new(U256::from(1), field_modulus)
         );
         let f = FQ2::new(
-            FieldElement::new(U256::from(1), FIELD_MODULUS),
-            FieldElement::new(U256::from(2), FIELD_MODULUS)
+            FieldElement::new(U256::from(1), field_modulus),
+            FieldElement::new(U256::from(2), field_modulus)
         ); 
         let fpx = FQ2::new(
-            FieldElement::new(U256::from(2), FIELD_MODULUS),
-            FieldElement::new(U256::from(3), FIELD_MODULUS)
+            FieldElement::new(U256::from(2), field_modulus),
+            FieldElement::new(U256::from(3), field_modulus)
         );
         let one = FQ2::new(
-            FieldElement::new(U256::from(1), FIELD_MODULUS),
-            FieldElement::new(U256::from(0), FIELD_MODULUS)
+            FieldElement::new(U256::from(1),field_modulus),
+            FieldElement::new(U256::from(0),field_modulus)
         );
 
       //  Addition
@@ -444,46 +390,47 @@ mod test {
 
     #[test]
     fn test_fq12_operations() {
-        let FIELD_MODULUS=Field(U256::from_dec_str(field_modulus).expect("Invalid number"));
+        let field_modulus=Field(U256::from_dec_str(FIELD_MODULUS).expect("Invalid number"));
         let f = FQ12::new(vec![
-            FieldElement::new(U256::from(1), FIELD_MODULUS),
-            FieldElement::new(U256::from(2), FIELD_MODULUS),
-            FieldElement::new(U256::from(3), FIELD_MODULUS),
-            FieldElement::new(U256::from(4), FIELD_MODULUS),
-            FieldElement::new(U256::from(5), FIELD_MODULUS),
-            FieldElement::new(U256::from(6), FIELD_MODULUS),
-            FieldElement::new(U256::from(7), FIELD_MODULUS),
-            FieldElement::new(U256::from(8), FIELD_MODULUS),
-            FieldElement::new(U256::from(9), FIELD_MODULUS),
-            FieldElement::new(U256::from(10), FIELD_MODULUS),
-            FieldElement::new(U256::from(11), FIELD_MODULUS),
-            FieldElement::new(U256::from(12), FIELD_MODULUS),
+            FieldElement::new(U256::from(1), field_modulus),
+            FieldElement::new(U256::from(2), field_modulus),
+            FieldElement::new(U256::from(3), field_modulus),
+            FieldElement::new(U256::from(4), field_modulus),
+            FieldElement::new(U256::from(5), field_modulus),
+            FieldElement::new(U256::from(6), field_modulus),
+            FieldElement::new(U256::from(7), field_modulus),
+            FieldElement::new(U256::from(8), field_modulus),
+            FieldElement::new(U256::from(9), field_modulus),
+            FieldElement::new(U256::from(10), field_modulus),
+            FieldElement::new(U256::from(11), field_modulus),
+            FieldElement::new(U256::from(12), field_modulus),
         ]);
-        
-        let x =FQ12::one(&f);
+        //x=one in FQ12
+        let x =FQ12::one(12);
+        println!("x={:?}",x);
        
         let fpx = FQ12::new(vec![
-            FieldElement::new(U256::from(2), FIELD_MODULUS),
-            FieldElement::new(U256::from(2), FIELD_MODULUS),
-            FieldElement::new(U256::from(3), FIELD_MODULUS),
-            FieldElement::new(U256::from(4), FIELD_MODULUS),
-            FieldElement::new(U256::from(5), FIELD_MODULUS),
-            FieldElement::new(U256::from(6), FIELD_MODULUS),
-            FieldElement::new(U256::from(7), FIELD_MODULUS),
-            FieldElement::new(U256::from(8), FIELD_MODULUS),
-            FieldElement::new(U256::from(9), FIELD_MODULUS),
-            FieldElement::new(U256::from(10), FIELD_MODULUS),
-            FieldElement::new(U256::from(11), FIELD_MODULUS),
-            FieldElement::new(U256::from(12), FIELD_MODULUS),
+            FieldElement::new(U256::from(2), field_modulus),
+            FieldElement::new(U256::from(2), field_modulus),
+            FieldElement::new(U256::from(3), field_modulus),
+            FieldElement::new(U256::from(4), field_modulus),
+            FieldElement::new(U256::from(5), field_modulus),
+            FieldElement::new(U256::from(6), field_modulus),
+            FieldElement::new(U256::from(7), field_modulus),
+            FieldElement::new(U256::from(8), field_modulus),
+            FieldElement::new(U256::from(9), field_modulus),
+            FieldElement::new(U256::from(10), field_modulus),
+            FieldElement::new(U256::from(11), field_modulus),
+            FieldElement::new(U256::from(12), field_modulus),
         ]);
     
-         //addition
+        //  //addition
         assert_eq!(x.inner.add(& f.inner),fpx.inner);
-        //division
+        // //division
         assert_eq!(f.inner .div(&f.inner), x.inner);
-        //Multiplication
+        // //Multiplication
         println!("{:?}", x.inner.mul(&x.inner));
-        //complex operation
+        // //complex operation
       
         assert_eq!((x.inner.mul( &f.inner)) .add( &x.inner .mul( &f.inner)), (x.inner .add( &x.inner)) .mul(&f.inner));
 
